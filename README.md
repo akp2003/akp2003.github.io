@@ -1,3 +1,4 @@
 # Welcome to this website!
 
-<a href="Ch3.html">link text</a>
+## Solutions to regression book by Sheather
+<a href="Ch3.html">chapter 3</a>
