@@ -9,4 +9,4 @@ chapter 5 (I might not add this one in the future)
 
 <a href="Ch6.html">chapter 6</a>
 
-<a href="Ch7.html">chapter 7</a>
+chapter 7 (No time, sorry)
