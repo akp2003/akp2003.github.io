@@ -1,0 +1,416 @@
+---
+title: "Simultaion Exam"
+author: "Arshak Parsa"
+format:
+  html:
+    css: styles.css
+    embed-resources: true
+date: "`r Sys.Date()`"
+editor: visual
+latex-auto-install: false
+template-partials: 
+  - before-title.tex
+---
+
+::: {.otherlanguage data-latex="{farsi}" lang="fa"}
+### مقدمه
+
+سلام پس از تلاش های فراوان بلاخره تونستم یه کاری کنم که این quarto فارسی قبول کنه :)
+
+برای حل کردن سوال یک به نمونه ای از این توزیع ها نیاز داریم. پس اول سوال دوم را حل می کنیم.
+:::
+
+::: {.otherlanguage data-latex="{farsi}" lang="fa"}
+از همین اول پارامتر ها را تعیین می کنیم.
+
+$b=40 ,\space \mu=111$
+
+$\alpha=35 ,\space \beta=13$
+:::
+
+```{r}
+b = 40
+mu = 111
+alpha = 35
+beta = 13
+```
+
+::: {.otherlanguage data-latex="{farsi}" lang="fa"}
+حالا سید رو ست می کنیم
+:::
+
+```{r}
+#| error: true
+set.seed(40111350013)
+```
+
+::: {.otherlanguage data-latex="{farsi}" lang="fa"}
+همونطور که میبینید ارور میده! ما می تونیم در اینجا سازش کنیم و یک عدد کوچک تر رو بدیم ولی اگر من را خوب بشناسید می دانید که من اهل سازش نیستم! باید شماره دانشجویی من رو R بپذیره!
+:::
+
+```{r}
+#| warning: false
+library(csvread)
+set.seed(as.int64(40111350013))
+```
+
+::: {.otherlanguage data-latex="{farsi}" lang="fa"}
+حالا شد! اول سوال دو را حل می کنیم و با نمونه های تصادفی تولید شده در سوال دو , به حل سوال اول می پردازیم
+
+# سوال دوم
+
+### روش تابع توزیع
+
+اول بیاید این دو چگالی را رسم کنیم تا یک دیدی نسبت به مسئله پیدا کنیم
+:::
+
+```{r}
+fx1 = function(x,mu,b) exp(-abs(x-mu)/b)/(2*b)
+fx2 = function(x,alpha,beta) (x>0)*((alpha/beta)*(x/beta)^(alpha-1)) / (1+(x/beta)^alpha)^2
+curve(fx1(x,mu,b),100,122,lwd=5,col="blue")
+```
+
+::: {.otherlanguage data-latex="{farsi}" lang="fa"}
+این کوهه؟
+:::
+
+```{r}
+curve(fx2(x,alpha,beta),10,16,lwd=5,col="hotpink")
+```
+
+::: {.otherlanguage data-latex="{farsi}" lang="fa"}
+این چرا انقد شبیه نرماله؟!
+
+تابع توزیع را بیابید. برای چگالی اول زمانی که $x\le\mu$ داریم
+
+$$F_1(x;\mu,b)=\int_{-\infty}^{x}f_1(t;\mu,b)dt = \int_{-\infty}^{x}\frac{1}{2b}exp(\frac{t-\mu}{b})dt =\frac{1}{2}(exp(\frac{x-\mu}{b})-exp(-\infty))=\frac{exp(\frac{x-\mu}{b})}{2}$$
+
+و زمانی که $x>\mu$
+
+$$F_1(x;\mu,b)=\int_{-\infty}^{x}f_1(t;\mu,b)dt = \int_{-\infty}^{\mu}\frac{1}{2b}exp(\frac{t-\mu}{b})dt+\int_{\mu}^{x}\frac{1}{2b}exp(\frac{\mu-t}{b})dt $$ $$ =\frac{1}{2}(exp(0)-exp(-\infty)-exp(\frac{\mu-x}{b})+exp(0))=1-\frac{exp(\frac{\mu-x}{b})}{2}$$ پس به طور کلی
+
+$$F_1(x;\mu,b)=\begin{cases}
+        \frac{exp(\frac{x-\mu}{b})}{2} \quad \text{if} \quad x\leq\mu\\
+       1-\frac{exp(\frac{\mu-x}{b})}{2} \quad \text{if} \quad  x>\mu
+     \end{cases}$$ حالا معکوس تابع توزیع را بیابید
+
+زمانی که $F_1^{-1}(x;\mu,b)\le\mu$
+
+$$x=\frac{exp(\frac{F_1^{-1}(x;\mu,b)-\mu}{b})}{2} \rightarrow F_1^{-1}(x;\mu,b)= b\space ln(2x) + \mu$$ $$F_1^{-1}(x;\mu,b)= b\space ln(2x) + \mu\le\mu \rightarrow ln(2x)\le0$$ $$\rightarrow 2x\le1 \rightarrow x\le\frac{1}{2}$$
+
+زمانی که $F_1^{-1}(x;\mu,b)>\mu$
+
+$$x=1-\frac{exp(\frac{\mu-F_1^{-1}(x;\mu,b)}{b})}{2} \rightarrow F_1^{-1}(x;\mu,b)= \mu-b\space ln(2(1-x))$$ به طور کلی
+
+$$F_1^{-1}(x;\mu,b)=\begin{cases}
+       b\space ln(2x) + \mu   \quad \text{if} \quad x\leq\frac{1}{2}\\
+      \mu-b\space ln(2(1-x))  \quad \text{if} \quad  x>\frac{1}{2}
+     \end{cases}$$
+
+از اون جایی که من خیلی کنجکاو و بیکار هستم , پس از یک تحقیق کوتاه اسم این توزیع رو پیدا کردم! اسم این توزیع لاپلاس هست! توی ویکی پدیا سرچ کنید می بینید که تمامی این جواب ها درست بدست آمده
+:::
+
+```{r}
+Fx1 = function(x,mu,b) {
+  (x<=mu)*exp((x-mu)/b)/2  + (x>mu)*(1-exp((mu-x)/b)/2 )
+}
+Fx1.inv = function(x,mu,b) {
+  if (sum(x>1)) stop("Dadash mage ehtemal mitone bishtar az 1 bashe?")
+  if (sum(x<0)) stop("Dadash mage ehtemal mitone kamtar az 0 bashe?")
+  (x<=1/2)*(b*log(2*x)+mu) + (x>1/2)*(mu-b*log(2*(1-x)))
+}
+```
+
+```{r}
+#| warning: false
+#Test
+Fx1.inv(Fx1(12,mu,b),mu,b)
+Fx1.inv(Fx1(mu,mu,b),mu,b)
+Fx1.inv(Fx1(156,mu,b),mu,b)
+
+# But it doesn't work for large numbers in R!
+Fx1.inv(Fx1(1565,mu,b),mu,b)
+
+# You can use Rmpfr
+library(Rmpfr)
+Fx1.inv(Fx1(mpfr(1565,128),mu,b),mu,b)
+
+```
+
+::: {.otherlanguage data-latex="{farsi}" lang="fa"}
+ها ها ها
+
+من حتی توزیع دوم رو هم پیدا کردم! اسمش توزیع Dagum هست!
+
+حالا بریم سراغ چگالی دوم
+
+همون کارا رو میکنیم
+
+$$F_2(x;\alpha,\beta)=\int_{0}^{x}\frac{\frac{\alpha}{\beta}(\frac{t}{\beta})^{\alpha-1}}{(1+(\frac{t}{\beta})^\alpha)^2}dt = \int_{0}^{x}\frac{\frac{\alpha{t}^{\alpha-1}}{\beta^\alpha}}{(1+(\frac{t}{\beta})^\alpha)^2}dt$$ به تغیر متغیر نیاز داریم
+
+$$u=1+(\frac{t}{\beta})^\alpha \rightarrow du= \frac{\alpha t^{\alpha-1}}{\beta^\alpha}dt$$ $$if \quad t\rightarrow 0 \quad then \quad u\rightarrow 1$$ $$if \quad t\rightarrow x \quad then \quad u\rightarrow 1+(\frac{x}{\beta})^\alpha$$ $$F_2(x;\alpha,\beta)=\int_{1}^{1+(\frac{x}{\beta})^\alpha}\frac{1}{u^2}du=[-u^{-1}]_1^{1+(\frac{x}{\beta})^\alpha}=1-\frac{1}{1+(\frac{x}{\beta})^\alpha}$$ $$=\frac{(\frac{x}{\beta})^\alpha}{1+(\frac{x}{\beta})^\alpha}=\frac{(\frac{x}{\beta})^\alpha}{1+(\frac{x}{\beta})^\alpha}\frac{(\frac{\beta}{x})^\alpha}{(\frac{\beta}{x})^\alpha}=\frac{1}{1+(\frac{x}{\beta})^{-\alpha}}$$ به طور کلی
+
+$$F_2(x;\alpha,\beta)=\begin{cases}
+       \frac{1}{1+(\frac{x}{\beta})^{-\alpha}}   \quad \text{if} \quad x>0\\
+      0  \quad \text{if} \quad  x\le0
+     \end{cases}$$
+
+بخشش لازم نیست , معکوسش کنید!
+
+$$x=\frac{1}{1+(\frac{F_2^{-1}(x;\alpha,\beta)}{\beta})^{-\alpha}} \rightarrow (\frac{F_2^{-1}(x;\alpha,\beta)}{\beta})^{-\alpha}=\frac{1}{x}-1 \rightarrow F_2^{-1}(x;\alpha,\beta)=\beta(\frac{1}{x}-1)^{-\alpha^{-1}}$$
+:::
+
+```{r}
+Fx2 = function(x,alpha,beta){
+  (x>0)*(1/(1+(x/beta)^(-alpha)))
+}
+Fx2.inv = function(x,alpha,beta) {
+  if (sum(x>1)) stop("Dadash mage ehtemal mitone bishtar az 1 bashe?")
+  if (sum(x<0)) stop("Dadash mage ehtemal mitone kamtar az 0 bashe?")
+  beta*(1/x -1)^(-1/alpha)
+}
+
+#Test
+library(VGAM)
+Fx2(14,alpha,beta)
+pdagum(14,beta,alpha,1)
+Fx2.inv(Fx2(6,alpha,beta),alpha,beta)
+Fx2.inv(0.45,alpha,beta)
+qdagum(0.45,beta,alpha,1)
+```
+
+::: {.otherlanguage data-latex="{farsi}" lang="fa"}
+وقتش شده که نمونه تصادفی تولید کنیم!
+:::
+
+```{r}
+rfx1 = function(n,mu,b) Fx1.inv(runif(n),mu,b)
+rfx2 = function(n,alpha,beta) Fx2.inv(runif(n),alpha,beta)
+
+samp1 = rfx1(500,mu,b);head(samp1)
+samp2 = rfx2(500,alpha,beta);head(samp2)
+
+```
+
+::: {.otherlanguage data-latex="{farsi}" lang="fa"}
+اینم نمونه هایی که قولشو دادم!
+
+از کجا معلوم کیک نباشه؟
+
+الان هم نمودار میکشیم هم ks.test
+:::
+
+```{r}
+check_dist = function(samp,Fx,Fx.inv,fx,ylim,par){
+  hist(samp,freq = FALSE,ylim = ylim)
+  lines(density(samp),col="orange",lwd=3,lty=2)
+  curve(fx(x,par[1],par[2]),add = TRUE,col="blue",lwd=3,lty=3)
+  qs = quantile(samp,probs=seq(0.05,0.95,0.05))
+  plot(qs,Fx.inv(seq(0.05,0.95,0.05),par[1],par[2]))
+  abline(0,1)
+  ks.test(samp,function(x) Fx(x,par[1],par[2]))
+}
+check_dist(samp1,Fx1,Fx1.inv,fx1,c(0,0.014),c(mu,b))
+```
+
+```{r}
+check_dist(samp2,Fx2,Fx2.inv,fx2,c(0,0.65),c(alpha,beta))
+```
+
+::: {.otherlanguage data-latex="{farsi}" lang="fa"}
+خوبه, خدا بده برکت!
+
+### الگوریتم رد و پذیرش
+
+برای این الگوریتم رد و پذیرش باید یک توزیع مشخص کنیم. چه توزیعی بهتر از لاپلاس؟
+:::
+
+```{r}
+library(AR)
+
+AR.data1 = AR.Sim(200,function(x) fx1(x,mu,b),"laplace",c(mu,b))
+AR.data2 = AR.Sim(200,function(x) fx2(x,alpha,beta),"dagum",c(beta,alpha,1))
+check_dist(AR.data1,Fx1,Fx1.inv,fx1,c(0,0.014),c(mu,b))
+check_dist(AR.data2,Fx2,Fx2.inv,fx2,c(0,0.65),c(alpha,beta))
+```
+
+::: {.otherlanguage data-latex="{farsi}" lang="fa"}
+اما اینطوری که مزه نمیده!
+
+بیاید یه توزیع اشتباهی رو انتخاب کنیم حداقل چار تا ریجکت هم بگیریم.
+
+برای لاپلاس , نرمال رو تست کردم خیلی جالب نشد , بیاید کوشی رو تست کنیم.
+
+برای دومی هم لاپلاس در نظر میگیریم چون دم هاش حداقل کلفته تو پیدا کردن c به مشکل بر نمی خوره و بعدش میشه انقد با دو تا پارامترش بازی کرد تا بلاخره شبیه این چگالی لامصب بشه!
+
+این الگوریتم مزخرف ترین روش هست
+
+به دل من که نچسبید
+:::
+
+```{r}
+# I just randomly found this!
+curve(fx2(x,alpha,beta),10,16,lwd=5,col="hotpink")
+curve(dlaplace(x,13,0.7),10,16,lwd=5,col="green",add=TRUE)
+
+```
+
+```{r}
+AR.data1 = AR.Sim(200,function(x) fx1(x,mu,b),"cauchy",c(mu,b))
+AR.data2 = AR.Sim(200,function(x) fx2(x,alpha,beta),"laplace",c(13,0.7))
+check_dist(AR.data1,Fx1,Fx1.inv,fx1,c(0,0.014),c(mu,b))
+check_dist(AR.data2,Fx2,Fx2.inv,fx2,c(0,0.65),c(alpha,beta))
+
+```
+
+::: {.otherlanguage data-latex="{farsi}" lang="fa"}
+# سوال اول
+
+## روش درستنمایی بیشینه
+
+چون توی فرمول چگالی قدر مطلق داریم فکر نکنم بتونیم مشتق بگیریم. چرا خودمون رو اذیت کنیم وقتی optim هست!
+
+در اینجا از کتابخانه docstring برای ایجاد یکسری توضیحات استفاده می کنم.
+
+روش بوت استرپ تا اونجا که من می دونم برای بدست اوردن توزیع برآوردگر استفاده میشه. مثلا اینجا در بدست اوردن توزیع میو هد ولی صورت سوال چنین چیزی رو نخواسته مگر اینکه توزیع رو برآورد کنی و بعد میانگین توزیع میو هد رو بگیری و اون رو به عنوان برآورد میو در نظر بگیریم که خیلی مسخره هست چون وقتی از همون اول میو هد داشتیم برای چی باید بیایم از روی برآوردگر میو یه برآورد دیگه پیدا کنیم.
+:::
+
+```{r}
+#| warning: false
+library(docstring)
+```
+
+```{r}
+#New check point!
+set.seed(as.int64(40111350013))
+
+Est2.plot = function(n,fx,rfx,rpar,tpar1,tpar2){
+  #' Two parameter estimate plot
+  #' 
+  #' This function is designed for two parameter distributions.
+  #' It plots MLE estimate and bootstrap together.
+  #' 
+  #' @param rpar Real parameters
+  #' @param tpar1 Test parameters for the first parameter
+  #' @param tpar2 Test parameters for the second parameter
+  x=rfx(n,rpar[1],rpar[2])
+  Loglik = function(a) sum(log(fx(x,a[1],a[2]))) 
+  z=0
+  for (p1 in tpar1){
+    for (p2 in tpar2){
+      z = c(z,Loglik(c(p1,p2)))
+    }
+  }
+  z=z[-1]
+  z=matrix(z,nrow = length(tpar1), byrow = TRUE)
+  persp(tpar1,tpar2,z)
+  image(tpar1,tpar2,z)
+  contour(tpar1,tpar2,z,add=TRUE)
+  
+  res = optim(c(rpar[1]+5,rpar[2]+5),function(x) -Loglik(x))$par
+  points(res[1],res[2],col="white",pch=16)
+  text(res[1],res[2]*1.01,"MLE",col="white",cex=0.8)
+  points(rpar[1],rpar[2],col="green",pch=16)
+  text(rpar[1],rpar[2]*.99,"Real",col="green",cex=0.8)
+  
+  #Bootstrap
+  # I DO NOT THINK WETHER THIS METHOD IS APPROPIATE!
+  
+}
+?Est2.plot
+Est2.plot(10000,fx1,rfx1,c(mu,b),seq(104,120,0.25),seq(38,45,0.25))
+Est2.plot(1000,fx2,rfx2,c(alpha,beta),seq(30,40,0.1),seq(12.7,13.2,0.05))
+
+```
+
+::: {.otherlanguage data-latex="{farsi}" lang="fa"}
+بیاید چک کنیم آیا MLE به یارش میرسه یا نه!
+:::
+
+```{r}
+# first density
+MLE_conv = function(fx,rfx,rpar){
+  MLES = matrix(0,2)
+  Loglik = function(a) sum(log(fx(x,a[1],a[2]))) 
+  ns = (2:22)^3
+  for (n in ns){
+    x=rfx(n,rpar[1],rpar[2])
+    res = optim(c(rpar[1]+5,rpar[2]+5),function(x) -Loglik(x))$par
+    MLES = cbind(MLES,res)  
+  }
+  MLES = MLES[,-1]
+  plot(ns,MLES[1,]-rpar[1],ylim=c(-10,10),type="l",lwd=2,col="blue")
+  points(ns,MLES[1,]-rpar[1])
+  lines(ns,MLES[2,]-rpar[2],type="l",lwd=2,col="red")
+  points(ns,MLES[2,]-rpar[2])
+  abline(h=0)
+  legend("bottomright",c("first param","second param"),col=c("blue","red"),lwd=2)
+}
+MLE_conv(fx1,rfx1,c(mu,b))
+MLE_conv(fx2,rfx2,c(alpha,beta))
+```
+
+::: {.otherlanguage data-latex="{farsi}" lang="fa"}
+# سوال سوم
+
+## ریمان
+
+قبل از این که این کار را به طور دستی انجام دهیم , بیاید یدور integrate رو تست کنیم
+:::
+
+```{r}
+integrate(function(x) exp(-x^6)/(1+x^2),0,Inf)
+```
+
+::: {.otherlanguage data-latex="{farsi}" lang="fa"}
+خب پس جواب باید این بشه
+
+از اون جایی که من خیلی حال ندارم همون کد های شما رو کپی پیست می کنم :)
+:::
+
+```{r}
+# b---> infinity
+a=0
+b=1.5
+# even 1.5 is enough
+n=15
+
+w<-(b-a)/n
+
+ksi<-seq(a+w/2,b-w/2,length=n)
+
+h<-exp(-ksi^6)/(1+ksi^2)
+
+s<-sum(h*w)
+s
+
+curve(exp(-x^6)/(1+x^2),0,b,lwd=2)
+#curve(dnorm(x,40,10),0,m,add=TRUE,col=2,lwd=3)
+abline(v=c(a,b),lty=2,lwd=3,col=2)
+
+rect(ksi-w/2,0,ksi+w/2,h,col = "#ff7700aa")
+segments(ksi-w/2,h,ksi+w/2,h,lwd=2)
+segments(ksi,0,ksi,h,lwd=2)
+
+```
+
+::: {.otherlanguage data-latex="{farsi}" lang="fa"}
+## مونت کارلو
+
+برای روش مونت کارلو نیاز به یک توزیع داریم. چون این انتگرال از 1.5 به بعد خیلی مقدار نداره از همون توزیع یکنواخت 0 و 1.5 استفاده می کنیم.
+
+این روش تا اونجا که می دونم به خاطر قانون اعداد بزرگ برقرار است.
+:::
+
+```{r}
+U = runif(200000,0,1.5)
+
+1.5*mean(exp(-U^6)/(1+U^2))
+
+```
+
+::: {.otherlanguage data-latex="{farsi}" lang="fa"}
+# سخن پایانی
+
+این فایل توسط یک انسان نوشته شده. جهت جلوگیری از هر گونه کاهش کیفیت از استفاده کردن از هر گونه هوش مصنوعی خودداری شده.
+:::
