@@ -13,4 +13,4 @@ chapter 7 (No time, sorry)
 
 ## پاسخ امتحان شبیه سازی (دانشگاه سمنان)
 
-<a href="SE/SE.html">chapter 6</a>
+<a href="SE/SE.html">پاسخ</a>
