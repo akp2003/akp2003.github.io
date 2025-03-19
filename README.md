@@ -10,7 +10,7 @@ chapter 5 (I might not add this one in the future)
 <a href="Ch6.html">chapter 6</a>
 
 chapter 7 (No time, sorry)
+## مطالبی برای فارسی زبانان عزیز :)
+<a href="SE/SE.html">پاسخ امتحان شبیه سازی (دانشگاه سمنان)</a>
+<a href="zaban_takhasosi.html">ترجمه لغات زبان تخصصی آمار (دانشگاه سمنان)</a>
 
-## پاسخ امتحان شبیه سازی (دانشگاه سمنان)
-
-<a href="SE/SE.html">پاسخ</a>
