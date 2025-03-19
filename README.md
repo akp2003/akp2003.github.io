@@ -1,6 +1,7 @@
 # Welcome to this website!
 
 ## Solutions to regression book by Sheather
+
 <a href="Ch3.html">chapter 3</a>
 
 <a href="Ch4.html">chapter 4</a>
@@ -12,5 +13,6 @@ chapter 5 (I might not add this one in the future)
 chapter 7 (No time, sorry)
 ## مطالبی برای فارسی زبانان عزیز :)
 <a href="SE/SE.html">پاسخ امتحان شبیه سازی (دانشگاه سمنان)</a>
+
 <a href="zaban_takhasosi.html">ترجمه لغات زبان تخصصی آمار (دانشگاه سمنان)</a>
 
