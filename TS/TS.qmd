@@ -1,0 +1,276 @@
+---
+title: "Time Series Models on DOGE Coin Data"
+author: "Arshak Parsa"
+format: revealjs
+date: last-modified
+code-block-border-left: "#31BAE9"
+code-overflow: wrap
+engine: knitr
+---
+
+```{r}
+#| include: false
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Our Goal
+
+We are going to fit different time series models on DOGE coin data!
+
+```{r}
+library(knitr)
+```
+
+## These are all scam!
+
+![](scam.jpg)
+
+## This is real!
+
+![](real.png)
+
+This is **Ritvik Kharkar**. You can watch his videos for **FREE**!
+
+## How to download the data?
+
+Run the following command to download data from Nobitex
+
+```{bash}
+#| eval: false
+curl 'https://api.nobitex.ir/market/udf/history?
+symbol=DOGEIRT&resolution=D&to=1862230967'
+-o DOGEIRT-D.json
+```
+
+Note: You must run this command in linux terminal.
+
+You could change `symbol` or `resolution` to get a different dataset.
+
+## How to convert json into csv?
+
+```{python}
+#| eval: false
+import json
+import pandas as pd
+file = 'DOGEIRT-D'
+with open(file+'.json') as train_file:
+    dict1 = json.load(train_file)
+
+# converting json dataset from dictionary to dataframe
+df = pd.DataFrame(data=dict1)
+df = df.drop('s', axis=1)
+df['t'] = pd.to_datetime(df['t'],unit='s')
+df = df.set_index('t')
+df.index = pd.DatetimeIndex(df.index).to_period('D')
+df.to_csv(file+'.csv')
+```
+
+Note: This is a python code.
+
+## Let's load the data
+
+```{r}
+df = read.csv("DOGEIRT-D.csv")
+df$t = as.Date(df$t)
+kable(head(df,2))
+kable(tail(df,2))
+```
+
+## Plot the data
+
+```{r}
+library(plotly)
+df %>% plot_ly(x = ~t, type="candlestick",
+          open = ~o, close = ~c,
+          high = ~h, low = ~l) 
+```
+
+## How to compare our models?
+
+-   Long Term Evaluation
+
+-   Short Term Evaluation
+
+## Forecast Accuracy Measures
+
+$P_i$ is the predicted response value and $A_i$ is the actual response value.
+
+$$MSE = \frac{1}{n}\sum_{i=1}^{n}(A_i-P_i)^2$$ $$RMSE = \sqrt{MSE}$$ $$MAD = \frac{1}{n}\sum_{i=1}^{n}|A_i-P_i|$$
+
+For now, we only use **closed price** as our response variable.
+
+## A function for **Long Term Evaluation**
+
+```{r}
+library(zeallot)
+res_prep = function(pred,lpred,lfun){
+  res = matrix(nrow = length(lfun),ncol = length(lpred))
+  rownames(res) = names(lfun)
+  colnames(res) = names(lpred)
+  colnames(pred) = names(lpred)
+  for (i in 1:length(lfun)) {
+    res[i,] = apply(pred,2,FUN = lfun[[i]])
+  }
+  return(list(pred = pred, res = res))
+}
+
+LTE = function(lpred,data,xname="t",yname="c",percent=0.8) {
+  tr = head(data,round(nrow(data)*percent))
+  ts = tail(data,nrow(data)-nrow(tr))
+  
+  pred = matrix(nrow = nrow(ts))
+  for (n in names(lpred)) 
+    pred = cbind(pred,lpred[[n]](tr,ts[,xname]))
+  pred = pred[,-1,drop=F]
+  
+  lfun = list(MSE=function(x) mean((x-ts[,yname])^2),MAD=function(x) mean(abs(x-ts[,yname])))
+  c(pred,res) %<-% res_prep(pred,lpred,lfun)
+  
+  # Plot 
+  fx = as.formula(paste("~",xname))
+  fy = as.formula(paste("~",yname))
+  fig = plot_ly(mode="lines", type = "scatter")%>%
+  add_trace( data=tr, x = fx, y = fy,name = "train")%>%
+  add_trace(data=ts, x = fx, y = fy,name = "test")
+  
+  for (n in colnames(pred))
+    fig = fig %>% add_trace(x=ts[,xname],y=pred[,n],name = n)
+  
+  return (list(results = res, fig=fig))
+}
+```
+
+```{r}
+#| include: false
+#| eval: false
+# This is for test
+f.zero = function(tr,ts) numeric(length(ts))
+f.one = function(tr,ts) rep(20000,length(ts))
+LTE.res = LTE(list(zero=f.zero,one=f.one),df,percent = 0.2)
+LTE.res$fig
+
+df.train = head(df,round(nrow(df)*0.8))
+df.test = tail(df,nrow(df)-nrow(df.train))
+  
+```
+
+## What about **Short Term Evaluation**?
+
+Note: **K-fold** cross-validation can't be used for time series data because this method assumes that observations are independent of each other.
+
+We need to perform **rolling cross-validation** which can be performed in two different ways (We will use both mathods).
+
+"But what is cross-validation?" you may ask.
+
+## This is **K-fold cross-validation**
+
+![](cs.png)
+
+## This is **rolling cross-validation**
+
+![](rc.ppm)
+
+## A function for **Short Term Evaluation**
+
+```{r}
+STE = function(lpred,data,xname="t",yname="c",startp=0.97,sliding.time=30) {
+  tr = head(data,round(nrow(data)*startp))
+  ts = tail(data,nrow(data)-nrow(tr))
+  
+  fx = as.formula(paste("~",xname))
+  fy = as.formula(paste("~",yname))
+  fig.base = plot_ly(mode="lines", type = "scatter")%>%
+  add_trace( data=tr, x = fx, y = fy,name = "train")%>%
+  add_trace(data=ts, x = fx, y = fy,name = "test")
+  
+  
+  pred.expand = matrix(nrow = nrow(ts),ncol = length(lpred))
+  pred.slide = matrix(nrow = nrow(ts), ncol = length(lpred))
+  for (i in 1:nrow(ts)){ 
+    for (j in 1:length(lpred)){
+      pred.slide[i,j] = lpred[[j]](tail(tr,sliding.time),ts[i,xname])
+      pred.expand[i,j] = lpred[[j]](tr,ts[i,xname])
+    }
+    tr = rbind(tr,ts[i,])
+  }
+  
+  lfun = list(MSE=function(x) mean((x-ts[,yname])^2),MAD=function(x) mean(abs(x-ts[,yname])))
+  c(pred.expand,res.expand) %<-% res_prep(pred.expand,lpred,lfun)
+  
+  c(pred.slide,res.slide) %<-% res_prep(pred.slide,lpred,lfun)
+  
+  
+  # Plot expanding
+  
+  fig.ex = fig.base
+  
+  for (n in colnames(pred.expand))
+    fig.ex = fig.ex %>% add_trace(x=ts[,xname],y=pred.expand[,n],name = n)
+  
+  # Plot sliding
+  fig.sl = fig.base
+  
+  for (n in colnames(pred.slide))
+    fig.sl = fig.sl %>% add_trace(x=ts[,xname],y=pred.slide[,n],name = n)
+  
+  
+  return(list(expanding=list(res=res.expand,fig=fig.ex), sliding = list(res=res.slide,fig=fig.sl)))
+}
+```
+
+## Simple Linear Regression
+
+```{r}
+lm.model.1 = function(tr,ts)
+  predict(lm(c~t,tr),data.frame(t=ts))
+lm.model.2 = function(tr,ts,n=2){
+  origin = tr[1,1]
+  x = as.numeric(tr[,1]-origin+1)
+  ts.x = as.numeric(ts-origin+1)
+  return(predict(lm(c~poly(x,n),tr),data.frame(x=ts.x)))
+}
+LTE.res = LTE(list(Linear.Reg=lm.model.1,Quad.Reg=lm.model.2),df,percent = 0.8)
+LTE.res$results
+```
+
+## 
+
+```{r}
+LTE.res$fig
+LTE.res$results
+```
+
+##
+
+```{r}
+STE.res = STE(list(Linear.Reg=lm.model.1,Quad.Reg=lm.model.2),df)
+STE.res$expanding$res
+STE.res$sliding$res
+```
+
+##
+
+```{r}
+STE.res$expanding$fig
+STE.res$expanding$res
+```
+
+##
+
+```{r}
+STE.res$sliding$fig
+STE.res$sliding$res
+```
+
+
+## Want more money?
+
+Do you want better models to make more money?
+
+## Read more stuff!
+
+![](books.jpg)
+
+## We are gonna be rich
+
+![](bro-explaining.jpg)
