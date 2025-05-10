@@ -16,3 +16,5 @@ chapter 7 (No time, sorry)
 
 <a href="zaban_takhasosi.html">ترجمه لغات زبان تخصصی آمار (دانشگاه سمنان)</a>
 
+<a href="TS/TS-fa.html">سری زمانی روی داده های دوج!</a>
+
