@@ -21,7 +21,11 @@ knitr::opts_chunk$set(echo = TRUE)
 قراره مدل های مختلف سری زمانی رو به داده های دوج کوین برازش کنیم!
 
 ```{r}
+#| warning: false
 library(knitr)
+library(tseries);library(TSA)
+library(broom)
+library(rlist)
 ```
 
 ## اینا همش کلاهبرداریه!
@@ -47,7 +51,24 @@ symbol=DOGEIRT&resolution=D&to=1862230967'
 
 با تغییر resolution و symbol می تونید داده‌های متفاوت بگیرید ، مثلاً symbol=BTCIRT داده بیتکوین میده
 
-## تبدیل json به csv
+زمان ها به فرمت unix time داده می شود!
+
+دستور معادل در R
+
+```{r}
+#| eval: false
+library(curl)
+library(jsonlite)
+tmp <- tempfile()
+curl_download("https://api.nobitex.ir/market/udf/history?symbol=DOGEIRT&resolution=D&to=1862230967", tmp)
+d = as.data.frame.list(fromJSON(jsonlite::prettify(readLines(tmp))))[,-1]
+d$t = as.Date.POSIXct(d$t, origin="1970-01-01")
+write.csv(d,"DOGEIRT-D.csv",row.names = FALSE)
+```
+
+## تبدیل json به csv در پایتون
+
+این کد های پایتون قدیمی هست!
 
 ```{python}
 #| eval: false
@@ -80,7 +101,8 @@ kable(tail(d,2))
 ## تبدیل تاریخ به اعداد
 
 ```{r}
-df = data.frame(t = as.numeric(d[,1]-d[1,1]+1),c = d$c)
+df = data.frame(time = d$t,c = d$c)
+tr.t = as.numeric(df[,1]-df[1,1]+1)
 head(df)
 ```
 
@@ -88,9 +110,10 @@ head(df)
 
 ```{r}
 library(plotly)
-d %>% plot_ly(x = ~t, type="candlestick",
+fig.candles = d %>% plot_ly(x = ~t, type="candlestick",
           open = ~o, close = ~c,
           high = ~h, low = ~l) 
+fig.candles
 ```
 
 ## چطور مدل ها را مقایسه کنیم؟
@@ -124,7 +147,7 @@ res_prep = function(pred,lpred,lfun){
   return(list(pred = pred, res = res))
 }
 
-LTE = function(lpred,data,xname="t",yname="c",percent=0.8) {
+LTE = function(lpred,data,tname="time",yname="c",percent=0.8) {
   tr = head(data,round(nrow(data)*percent))
   ts = tail(data,nrow(data)-nrow(tr))
   
@@ -142,14 +165,14 @@ LTE = function(lpred,data,xname="t",yname="c",percent=0.8) {
   c(pred,res) %<-% res_prep(pred,lpred,lfun)
   
   # Plot 
-  fx = as.formula(paste("~",xname))
+  fx = as.formula(paste("~",tname))
   fy = as.formula(paste("~",yname))
   fig = plot_ly(mode="lines", type = "scatter")%>%
   add_trace( data=tr, x = fx, y = fy,name = "train")%>%
   add_trace(data=ts, x = fx, y = fy,name = "test")
   
   for (n in colnames(pred))
-    fig = fig %>% add_trace(x=ts[,xname],y=pred[,n],name = n)
+    fig = fig %>% add_trace(x=ts[,tname],y=pred[,n],name = n)
   return (list(results = res, fig=fig, extra.info = extra.info))
 }
 ```
@@ -187,11 +210,11 @@ df.test = tail(df,nrow(df)-nrow(df.train))
 ## یک تابع برای ارزیابی **کوتاه مدت**
 
 ```{r}
-STE = function(lpred,data,xname="t",yname="c",startp=0.97,sliding.time=30,is.plot=TRUE) {
+STE = function(lpred,data,tname="time",yname="c",startp=0.97,sliding.time=30,is.plot=TRUE) {
   tr = head(data,round(nrow(data)*startp))
   ts = tail(data,nrow(data)-nrow(tr))
   
-  fx = as.formula(paste("~",xname))
+  fx = as.formula(paste("~",tname))
   fy = as.formula(paste("~",yname))
   fig.base = plot_ly(mode="lines", type = "scatter")%>%
   add_trace( data=tr, x = fx, y = fy,name = "train")%>%
@@ -220,11 +243,11 @@ STE = function(lpred,data,xname="t",yname="c",startp=0.97,sliding.time=30,is.plo
   
   if(is.plot){
   for (n in colnames(pred.expand))
-    fig.ex = fig.ex %>% add_trace(x=ts[,xname],y=pred.expand[,n],name = n)
+    fig.ex = fig.ex %>% add_trace(x=ts[,tname],y=pred.expand[,n],name = n)
   
   # Plot sliding
   for (n in colnames(pred.slide))
-    fig.sl = fig.sl %>% add_trace(x=ts[,xname],y=pred.slide[,n],name = n)
+    fig.sl = fig.sl %>% add_trace(x=ts[,tname],y=pred.slide[,n],name = n)
   }
   
   return(list(expanding=list(res=res.expand,fig=fig.ex), sliding = list(res=res.slide,fig=fig.sl)))
@@ -254,9 +277,14 @@ f.fix <- function(fname,fixed) {
 
 ```{r}
 m.lm_poly = function(tr,ts,n=2,x=NULL){
+  timeInd = which(colnames(tr)=="time")
+  t = as.numeric(tr[,1]-tr[1,1]+1)
+  ts$t = as.numeric(ts[,1]-tr[1,1]+1)
+  tr = tr[,-timeInd,drop=FALSE]
+  ts = ts[,-timeInd,drop=FALSE]
   # Note that poly() returns Orthogonal Polynomials 
   if (!is.null(x)){ 
-    tr = tr[,c("t","c",x),drop=FALSE]
+    tr = tr[,c("c",x),drop=FALSE]
     ts = ts[,c("t",x),drop=FALSE]
   }
   if (n==0)
@@ -267,9 +295,10 @@ m.lm_poly = function(tr,ts,n=2,x=NULL){
 }
 
 poly.list = list(Linear.Reg=f.fix("m.lm_poly",c(n=1)),
-                   Quad.Reg=f.fix("m.lm_poly",c(n=2)),
-                   Cubic.Reg=f.fix("m.lm_poly",c(n=3)),
-                   Quartic.Reg=f.fix("m.lm_poly",c(n=4)) )
+                   Poly2.Reg=f.fix("m.lm_poly",c(n=2)),
+                   Poly3.Reg=f.fix("m.lm_poly",c(n=3)),
+                   Poly4.Reg=f.fix("m.lm_poly",c(n=4)),
+                   Poly9.Reg=f.fix("m.lm_poly",c(n=9)) )
               
 LTE.poly = LTE(poly.list,df,percent = 0.8)
 LTE.poly$results
@@ -282,9 +311,38 @@ LTE.poly$fig
 LTE.poly$results
 ```
 
-## Polynomial Regression (STE)
+## بررسی خروجی lm
 
 ```{r}
+lm.res = as.data.frame(list.rbind(lapply(LTE.poly$extra.info,glance)))
+row.names(lm.res) = names(poly.list)
+kable(lm.res)
+```
+
+## بررسی خروجی lm
+
+اگر دقت کنید R² برای درجات بالاتر بهتر می شود اما مدل های با درجات بالا در cross validation ضعیف عمل می کنند
+
+(نشانه های بیش برازش ) (over-fitting)
+
+## بررسی خروجی lm
+
+```{r}
+summary(LTE.poly$extra.info$Poly4.Reg)
+```
+
+
+## بررسی شرایط مدل
+
+```{r}
+par(mfrow=c(2,2));m=LTE.poly$extra.info$Poly4.Reg
+plot(m);p=length(m$coefficients);n=nrow(m$model)
+abline(h=2);abline(h=-2);abline(v=2*(p+1)/n)
+```
+
+## Polynomial Regression (STE)
+
+```{r, ste_pr}
 STE.poly = STE(poly.list,df)
 STE.poly$expanding$res
 STE.poly$sliding$res
@@ -359,9 +417,18 @@ LTE.sp38$fig
 LTE.sp38$results - LTE.poly$results
 ```
 
-## SP L=38 (STE)
+
+## بررسی خروجی lm
 
 ```{r}
+lm.res = as.data.frame(list.rbind(lapply(LTE.sp38$extra.info,glance)))
+row.names(lm.res) = names(poly.list)
+kable(lm.res)
+```
+
+## SP L=38 (STE)
+
+```{r, ste_sp_l38}
 STE.sp38 = STE(poly.list,df,sliding.time = 38*2)
 STE.sp38$expanding$res
 STE.sp38$sliding$res
@@ -412,8 +479,8 @@ for (i in 1:4){
   Sname = paste("S",i,"L38",sep = "")
   Cname = paste("C",i,"L38",sep = "")
   fsr.x = c(fsr.x,Sname,Cname)
-  df[,Sname] = sin(2*pi*(i/38)*df$t)
-  df[,Cname] = cos(2*pi*(i/38)*df$t)
+  df[,Sname] = sin(2*pi*(i/38)*tr.t)
+  df[,Cname] = cos(2*pi*(i/38)*tr.t)
 }
 head(df)
 ```
@@ -437,6 +504,15 @@ LTE.pf$fig
 LTE.pf$results
 ```
 
+
+## بررسی خروجی lm
+
+```{r}
+lm.res = as.data.frame(list.rbind(lapply(LTE.pf$extra.info,glance)))
+row.names(lm.res) = names(pf.list)
+kable(lm.res)
+```
+
 ## PF (STE)
 
 ```{r}
@@ -458,7 +534,32 @@ STE.pf$expanding$res
 ```{r}
 STE.pf$sliding$fig
 STE.pf$sliding$res
+```
 
+## داده پرت در سری زمانی
+
+![](outliers.png)
+
+## ARIMA
+
+این بخش فعلا آزمایشی است!
+
+```{r}
+m.ar = arima(df$c,order = c(1,0,0))
+```
+
+## بیایید این داده های پرت را پیدا کنیم!
+
+```{r}
+AO = detectAO(m.ar)
+IO = detectIO(m.ar)
+```
+
+
+## بیایید این داده های پرت را پیدا کنیم!
+
+```{r}
+plot_ly(x = df$time, y = df$c, type = "scatter")%>% add_trace(x=df$time[IO$ind],y=df$c[IO$ind],name="IO") %>% add_trace(x=df$time[AO$ind],y=df$c[AO$ind],name="AO")
 ```
 
 ## پول نداری سرمایه گذاری کنی؟
